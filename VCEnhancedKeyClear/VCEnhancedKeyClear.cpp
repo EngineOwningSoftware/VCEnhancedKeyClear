@@ -157,7 +157,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */, LPSTR /* lpCmdLi
 	{
 		DestroyWindow(hwnd);
 		UnregisterClass(VCEKC_CLASSNAME, hInstance);
-		MessageBox(NULL, _T("CreateWindowEx() failed"), VCEKC_MSGTITLE, MB_ICONERROR | MB_OK);
+		MessageBox(NULL, _T("WTSRegisterSessionNotification() failed"), VCEKC_MSGTITLE, MB_ICONERROR | MB_OK);
 		return -1;
 	}
 	
