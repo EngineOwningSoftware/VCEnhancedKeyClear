@@ -101,7 +101,7 @@ DWORD CInstaller::UninstallFiles()
 
     auto& TargetDir = GetTargetPath();
 
-    if (!RemoveDirectory2W(TargetDir.c_str(), DIRECTORY_FLAGS::DIRECTORY_FLAGS_NONE))
+    if (!RemoveDirectoryW(TargetDir.c_str()))
     {
         dwError = GetLastError();
     }
