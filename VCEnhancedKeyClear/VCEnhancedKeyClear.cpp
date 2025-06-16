@@ -1,24 +1,11 @@
-// VeraCrypt defines
-#define TC_SYSTEM_FAVORITES_SERVICE_NAME L"VeraCryptSystemFavorites"
-#define VC_DRIVER_CONFIG_CLEAR_KEYS_ON_NEW_DEVICE_INSERTION	0x400
-#define VC_SERVICE_CONTROL_BUILD_DEVICE_LIST 128
-
-// VCEKC defines
-#define VCEKC_CLASSNAME _T("VCEnhancedKeyClear_WndClass")
-#define VCEKC_WINDOWNAME _T("VCEnhancedKeyClear_Wnd")
-#define VCEKC_MSGTITLE _T("VeraCrypt Enhanced Key Clear")
-#define VCEKC_TOOLTIPMSG _T("VeraCrypt Enhanced Key Clear is active. Right-click to exit.")
-#define VCEKC_MUTEX _T("VCEnhancedKeyClear_Mutex")
-#define VCEKC_SHELLICONMSG 0xBEFC
-
 #include "stdafx.h"
 #include "resource.h"
+#include "defines.h"
+#include "Installer.h"
 
 #include <Windows.h>
 #include <wtsapi32.h>
 #include <strsafe.h>
-
-#pragma comment(lib, "Wtsapi32.lib")
 
 NOTIFYICONDATA nid{};
 
@@ -141,8 +128,68 @@ LRESULT CALLBACK VcekcWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 	return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
-int WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */, LPSTR /* lpCmdLine */, int /* nShowCmd */)
+int wWinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */, PWSTR lpCmdLine, int /* nShowCmd */)
 {
+	// Handle install/uninstall command line parameters
+	int argc = 0;
+	auto argv = CommandLineToArgvW(lpCmdLine, &argc);
+
+	if (argv != nullptr)
+	{
+		TCHAR OwnPath[MAX_PATH]{};
+		GetModuleFileName(NULL, OwnPath, _countof(OwnPath));
+
+		CInstaller installer(OwnPath);
+
+		for (int i = 0; i < argc; i++)
+		{
+			DWORD dwStatus = ERROR_SUCCESS;
+
+			if (!_wcsicmp(argv[i], L"--install"))
+			{
+				dwStatus = installer.Install();
+				if (dwStatus == ERROR_SUCCESS)
+				{
+					wprintf(L"Successfully installed VeraCryptEnhancedKeyClear to %s\n", installer.GetTargetPath().c_str());
+					return 0;
+				}
+
+				wprintf(L"Failed to install VeraCryptEnhancedKeyClear: 0x%X\n", dwStatus);
+				return dwStatus;
+			}
+			else if (!_wcsicmp(argv[i], L"--uninstall"))
+			{
+				dwStatus = installer.Uninstall();
+				if (dwStatus == ERROR_SUCCESS)
+				{
+					wprintf(L"Successfully removed VeraCryptEnhancedKeyClear\n");
+					return 0;
+				}
+
+				wprintf(L"Failed to uninstall VeraCryptEnhancedKeyClear: 0x%X\n", dwStatus);
+				return dwStatus;
+			}
+			else if (!_wcsicmp(argv[i], L"--autorun"))
+			{
+				STARTUPINFOW startupInfo{};
+				PROCESS_INFORMATION processInfo{};
+
+				startupInfo.cb = sizeof(startupInfo);
+
+				if (CreateProcessW(NULL, OwnPath, NULL, NULL, FALSE, 0, NULL, NULL, &startupInfo, &processInfo))
+				{
+					CloseHandle(processInfo.hThread);
+					CloseHandle(processInfo.hProcess);
+					return ERROR_SUCCESS;
+				}
+
+				return GetLastError();
+			}
+		}
+
+		LocalFree(argv);
+	}
+
 	// Check if another instance is running
 	SetLastError(0);
 	auto mutex = CreateMutex(NULL, TRUE, VCEKC_MUTEX);
@@ -209,7 +256,15 @@ int WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */, LPSTR /* lpCmdLi
 	nid.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1));
 	StringCchCopy(nid.szTip, sizeof(nid.szTip) / sizeof(nid.szTip[0]), VCEKC_TOOLTIPMSG);
 
-	Shell_NotifyIcon(NIM_ADD, &nid);
+	BOOL IconCreated = FALSE;
+	int IconCreateTries = 0;
+
+	do
+	{
+		IconCreated = Shell_NotifyIcon(NIM_ADD, &nid);
+		Sleep(500); // xd
+	} while (!IconCreated && ++IconCreateTries < 120);
+	// If we didn't manage to create the icon, fuck it. better to run anyway
 
 	// Message loop
 	MSG msg{};
