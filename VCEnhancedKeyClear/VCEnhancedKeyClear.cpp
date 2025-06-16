@@ -1,5 +1,9 @@
+// VeraCrypt defines
+#define TC_SYSTEM_FAVORITES_SERVICE_NAME L"VeraCryptSystemFavorites"
 #define VC_DRIVER_CONFIG_CLEAR_KEYS_ON_NEW_DEVICE_INSERTION	0x400
+#define VC_SERVICE_CONTROL_BUILD_DEVICE_LIST 128
 
+// VCEKC defines
 #define VCEKC_CLASSNAME _T("VCEnhancedKeyClear_WndClass")
 #define VCEKC_WINDOWNAME _T("VCEnhancedKeyClear_Wnd")
 #define VCEKC_MSGTITLE _T("VeraCrypt Enhanced Key Clear")
@@ -17,6 +21,33 @@
 #pragma comment(lib, "Wtsapi32.lib")
 
 NOTIFYICONDATA nid{};
+
+bool VeraCryptBuildDeviceList()
+{
+	SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
+	bool bRet = false;
+
+	if (hSCManager != NULL)
+	{
+		SC_HANDLE hService = OpenService(hSCManager, TC_SYSTEM_FAVORITES_SERVICE_NAME, SERVICE_ALL_ACCESS);
+
+		if (hService != NULL)
+		{
+			SERVICE_STATUS serviceStatus{};
+
+			if (ControlService(hService, VC_SERVICE_CONTROL_BUILD_DEVICE_LIST, &serviceStatus))
+			{
+				bRet = true;
+			}
+
+			CloseServiceHandle(hService);
+		}
+
+		CloseServiceHandle(hSCManager);
+	}
+
+	return bRet;
+}
 
 bool SetClearKeysFlag(bool state)
 {
@@ -58,22 +89,29 @@ LRESULT CALLBACK VcekcWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 	{
 	case WM_WTSSESSION_CHANGE:
 	{
-		bool res = true;
+		bool resSetConfig = true;
+		bool resBuildDeviceList = true;
 
 		switch (wParam)
 		{
 		default: break;
 		case WTS_SESSION_UNLOCK:
-			res = SetClearKeysFlag(false);
+			resSetConfig = SetClearKeysFlag(false);
 			break;
 		case WTS_SESSION_LOCK:
-			res = SetClearKeysFlag(true);
+			resBuildDeviceList = VeraCryptBuildDeviceList();
+			resSetConfig = SetClearKeysFlag(true);
 			break;
 		}
 
-		if (!res)
+		if (!resSetConfig)
 		{
 			MessageBox(NULL, _T("Failed to change VC_DRIVER_CONFIG_CLEAR_KEYS_ON_NEW_DEVICE_INSERTION"), VCEKC_MSGTITLE, MB_ICONEXCLAMATION | MB_OK);
+		}
+
+		if (!resBuildDeviceList)
+		{
+			MessageBox(NULL, _T("Failed to send VC_SERVICE_CONTROL_BUILD_DEVICE_LIST"), VCEKC_MSGTITLE, MB_ICONEXCLAMATION | MB_OK);
 		}
 
 		break;
