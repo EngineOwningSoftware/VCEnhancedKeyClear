@@ -8,7 +8,7 @@
 #pragma comment(lib, "credui.lib")
 
 // VeraCrypt defines
-#define TC_SYSTEM_FAVORITES_SERVICE_NAME L"VeraCryptSystemFavorites"
+#define TC_SYSTEM_FAVORITES_SERVICE_NAME _T("VeraCryptSystemFavorites")
 #define VC_DRIVER_CONFIG_CLEAR_KEYS_ON_NEW_DEVICE_INSERTION	0x400
 #define VC_SERVICE_CONTROL_BUILD_DEVICE_LIST 128
 
